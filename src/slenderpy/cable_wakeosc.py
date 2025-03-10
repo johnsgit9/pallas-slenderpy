@@ -62,9 +62,9 @@ def solve(cb: cable.SCable,
     r = np.zeros_like(q)
     ut, ef = cbu.utef(un, ub, C, s, ds, vt2)
 
-    lov = ['ut', 'un', 'ub', 'q']
+    lov = ['ut', 'un', 'ub', 'q', 'ef']
     res = simtools.Results(lot=pm.time_vector_output().tolist(), lov=lov, los=pm.los)
-    res.update(0, s, lov, [ut, un, ub, q])
+    res.update(0, s, lov, [ut, un, ub, q, ef])
 
     if fast:
         Is1 = I.multiply(1. + ht2)
@@ -150,7 +150,7 @@ def solve(cb: cable.SCable,
         t += dt
         ut, ef = cbu.utef(un, ub, C, s, ds, vt2)
         if (k + 1) % pm.rr == 0:
-            res.update((k // pm.rr) + 1, s, lov, [ut, un, ub, q])
+            res.update((k // pm.rr) + 1, s, lov, [ut, un, ub, q, ef])
             pb.update(pm.rr)
     # END FOR
     pb.close()
