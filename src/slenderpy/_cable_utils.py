@@ -102,7 +102,27 @@ def geom_discretization(N: int = 501,
 
 
 def spacediscr(ns):
-    """Generate space discretization and other related values."""
+    """Generate space discretization and other related values.
+
+    Parameters
+    ----------
+    ns : int
+        number of points
+
+    Returns
+    -------
+    int
+        ns, number of points.
+    np.ndarray
+        s, point distribution
+    np.ndarray
+        ds, point spacing
+    int
+        N, number of points
+    int
+        n, number of internal points
+    """
+
     s = np.linspace(0., 1., ns)
     ds = np.diff(s)
     N = len(s)
@@ -134,7 +154,29 @@ def adim(cb):
 
 
 def times(pm, tAd):
-    """Get time-related variables."""
+    """Get time-related variables.
+
+    Parameters
+    ----------
+    pm : slenderpy.simtools.Parameters
+        Simulation parameters.
+    
+    tAd : non-dimensional time reference quantity
+
+    Returns
+    -------
+    float
+        t, initial non-dimensional time
+    float
+        tf, non-dimensional end tim
+    float
+        dt, time step length
+    float
+        ht, half time-step length
+    float
+        ht2, half time-step length squared
+    """
+    
     t = pm.t0 / tAd
     tf = pm.tf / tAd
     dt = (tf - t) / pm.nt

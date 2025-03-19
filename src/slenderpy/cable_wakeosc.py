@@ -2,17 +2,19 @@
 
 import numpy as np
 import scipy as sp
+import random
 from slenderpy import _cable_utils as cbu
 from slenderpy import _progress_bar as spb
 from slenderpy import cable
 from slenderpy import force
 from slenderpy import simtools
+from slenderpy import turbwind
 
 
 def solve(cb: cable.SCable,
           pm: simtools.Parameters,
           wo: force.WOP,
-          md: int = 1,
+          md0: int = 1,
           y0: float = 0.,
           q0: float = 0.05,
           fast: bool = True) -> simtools.Results:
@@ -26,7 +28,7 @@ def solve(cb: cable.SCable,
         Simulation parameters.
     wo : structib.force.WOP
         Wake oscillator parameters.
-    md : int, optional
+    md0 : int, optional
         Mode for initial cable shape. The default is 1.
     y0 : float, optional
         Amplitude in meters for initial cable shape and fluid variable. The
@@ -44,11 +46,12 @@ def solve(cb: cable.SCable,
 
     """
     M = wo.rho * cb.d**2 * wo.cl0 / (16. * np.pi**2 * wo.st**2 * cb.m)
-    w = 2. * np.pi * wo.u * wo.st / cb.d
-
-    al = wo.al / w**2
-    bt = wo.bt / w**2
-    gm = wo.gm / w**2
+    if wo.tbw is None:
+        w = 2. * np.pi * wo.u * wo.st / cb.d
+    
+        al = wo.al / w**2
+        bt = wo.bt / w**2
+        gm = wo.gm / w**2
 
     ns, s, ds, N, n = cbu.spacediscr(pm.ns)
     vt2, vl2 = cbu.vtvl(cb)
@@ -57,8 +60,10 @@ def solve(cb: cable.SCable,
     t, tf, dt, ht, ht2 = cbu.times(pm, tAd)
     z = np.zeros_like(s)
     _, ub, vn, vb = cbu.init_vars(cb, s, z, z, z, z, uAd, False)
-    un = y0 * np.sin(md * np.pi * s)
-    q = q0 * np.sin(md * np.pi * s)
+    # initial displacement
+    un = y0 * np.sin(md0 * 2.0 * np.pi * s)
+    # initial wake oscillator parameter
+    q = q0 * np.sin(md0 * 2.0 * np.pi * s)
     r = np.zeros_like(q)
     ut, ef = cbu.utef(un, ub, C, s, ds, vt2)
 
@@ -66,24 +71,49 @@ def solve(cb: cable.SCable,
     res = simtools.Results(lot=pm.time_vector_output().tolist(), lov=lov, los=pm.los)
     res.update(0, s, lov, [ut, un, ub, q, ef])
 
-    if fast:
-        Is1 = I.multiply(1. + ht2)
-        Is2 = I.multiply(1. / M)
-        Is3 = I.multiply(ht * bt)
-        Xb = np.zeros((3, n))
-        Yb = np.zeros((3, n))
+    if wo.tbw is None:
+        if fast:
+            Is1 = I.multiply(1. + ht2)
+            Is2 = I.multiply(1. / M)
+            Is3 = I.multiply(ht * bt)
+            Xb = np.zeros((3, n))
+            Yb = np.zeros((3, n))
+        else:
+            A25 = I.multiply(M)
+            A61 = I.multiply(wo.gm / w**2)
+            A62 = I.multiply(wo.bt / w**2)
     else:
-        A25 = I.multiply(M)
-        A61 = I.multiply(wo.gm / w**2)
-        A62 = I.multiply(wo.bt / w**2)
+        if fast:
+            Is1 = I.multiply(1. + ht2)
+            Is2 = I.multiply(1. / M)
+            Xb = np.zeros((3, n))
+            Yb = np.zeros((3, n))
+        else:
+            A25 = I.multiply(M)
 
     # loop
     res.start_timer()
     pb = spb.generate(pm.pp, pm.nt, desc=__name__)
     for k in range(pm.nt):
 
-        h = (-1. * cb.m * cb.g * cb.d / cb.H * un
-             + 0.5 * (cb.d / cb.L)**2 * ((C * un)**2 + (C * ub)**2))
+        if wo.tbw is not None:
+            u_ft = wo.tbw.get(t=t, y=0.5*cb.Lp)[0][0][0]
+            #print("nt = %g, t = %gs u(t) = %gm/s" % (k, t, u_ft))
+        
+            w = 2. * np.pi * u_ft * wo.st / cb.d
+    
+            al = wo.al / w**2
+            bt = wo.bt / w**2
+            gm = wo.gm / w**2
+        
+            if fast:
+                Is3 = I.multiply(ht * bt)
+            else:
+                A61 = I.multiply(wo.gm / w**2)
+                A62 = I.multiply(wo.bt / w**2)
+
+        h = -1. * cb.m * cb.g * cb.d / cb.H * un \
+             + 0.5 * (cb.d / cb.L)**2 * ((C * un)**2 + (C * ub)**2)
         e = 0.5 * np.sum((h[:-1] + h[1:]) * ds)
 
         if fast:
@@ -137,9 +167,14 @@ def solve(cb: cable.SCable,
             X = np.concatenate((un[1:-1], vn[1:-1], ub[1:-1], vb[1:-1], q[1:-1], r[1:-1]))
             rhs = cb.EA * cb.g / (cb.H * cb.d * w**2) * e * np.ones(n)
             R = np.hstack((np.zeros(n), rhs, np.zeros(3 * n), wo.al / w**2 * rhs))
+            
             Ma = sp.sparse.eye(6 * n) - AA.multiply(ht)
             Mb = sp.sparse.eye(6 * n) + AA.multiply(ht)
+            
+            # solve matrix problem
             Xn = sp.sparse.linalg.spsolve(Ma, Mb * X + dt * R)
+            
+            # recover next values into variable arrays
             un = np.concatenate(([0.], Xn[0 * n: 1 * n], [0.]))
             vn = np.concatenate(([0.], Xn[1 * n: 2 * n], [0.]))
             ub = np.concatenate(([0.], Xn[2 * n: 3 * n], [0.]))
@@ -160,4 +195,8 @@ def solve(cb: cable.SCable,
     res.data.assign_coords({simtools.__stime__: res.data[simtools.__stime__].values * tAd})
     for v in ['ut', 'un', 'ub']:
         res.data[v] *= cb.d
+    res.data['ef'] *= cb.EA
+    
     return res
+
+

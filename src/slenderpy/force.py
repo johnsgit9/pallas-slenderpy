@@ -1,10 +1,10 @@
 """Force objects."""
 
-from typing import Optional, Union, Tuple, Any
+from typing import Optional, Callable, Union, Tuple, Any
 
 import numpy as np
 from slenderpy.wind import air_volumic_mass
-
+from slenderpy import turbwind
 
 class WOP:
     """Wake oscillator parameterss."""
@@ -16,7 +16,8 @@ class WOP:
                  eps: Optional[float] = None,
                  al: Optional[float] = None,
                  bt: Optional[float] = None,
-                 gm: Optional[float] = None) -> None:
+                 gm: Optional[float] = None,
+                 tbw: Optional[turbwind.TurbWind3D] = None) -> None:
         """Init with args.
 
         Parameters
@@ -35,6 +36,8 @@ class WOP:
             Wake oscillator parameter.
         gm : float
             Wake oscillator parameter.
+        tbw: turbwind.TurbWind3D
+            turbulent wind generator
 
         Returns
         -------
@@ -48,6 +51,7 @@ class WOP:
         self.bt = bt
         self.gm = gm
         self.rho = air_volumic_mass()
+        self.tbw = tbw
 
     def __call__(self, s, t):
         raise NotImplementedError()
