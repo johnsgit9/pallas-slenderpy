@@ -249,7 +249,8 @@ class Results:
              lov: Optional[List[str]] = None,
              los: Optional[List[float]] = None,
              tmin: float = 0.,
-             tmax: float = np.inf) -> None:
+             tmax: float = np.inf,
+             sparse_nt: int = 1) -> None:
         """Drop variables, positions of interest or crop time to save space.
 
         All happens "in place".
@@ -265,6 +266,8 @@ class Results:
         tmax : float, optional
             New last time. All recorded times after tmax are removed. The
             default is np.inf.
+        sparse_nt : int, optional
+            Keep every sparse_nt time-steps
 
         Raises
         ------
@@ -280,6 +283,8 @@ class Results:
 
         aot = np.array(self.lot())
         ttk = np.where((aot >= tmin) & (aot <= tmax))[0].tolist()
+        if sparse_nt > 1:
+            ttk = ttk[::sparse_nt]
 
         vtk = self.los()
         itk = list(range(len(vtk)))

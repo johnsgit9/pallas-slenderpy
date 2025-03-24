@@ -15,6 +15,7 @@ def solve(cb: cable.SCable,
           pm: simtools.Parameters,
           wo: force.WOP,
           md0: int = 1,
+          dmd0: int = 0,
           y0: float = 0.,
           q0: float = 0.05,
           fast: bool = True) -> simtools.Results:
@@ -60,10 +61,40 @@ def solve(cb: cable.SCable,
     t, tf, dt, ht, ht2 = cbu.times(pm, tAd)
     z = np.zeros_like(s)
     _, ub, vn, vb = cbu.init_vars(cb, s, z, z, z, z, uAd, False)
-    # initial displacement
+    
+    def init_sin(m, y0, q0, qconst=False, y0rand=False):
+        if y0rand:
+            ytmp = y0 * random.uniform(0.0, 1.0)
+        else:
+            ytmp = y0
+        # initial displacement
+        un = ytmp * np.sin(m * 2.0 * np.pi * s)
+        # initial wake oscillator parameter
+        if qconst:
+            q = q0 * np.ones_like(s)
+        else:
+            q = q0 * np.sin(m * 2.0 * np.pi * s)
+        return (un, q)
+    
+    if dmd0 > 0:
+        # mutli-mode initialisation
+        un = np.zeros((pm.ns,))
+        q = np.zeros((pm.ns,))
+        for m in range(md0, md0+dmd0+1):
+            out = init_sin(m, y0, q0, qconst=False, y0rand=True)
+            un += out[0]
+            q += out[1]
+    else:
+        # mono-mode initialisation
+        out = init_sin(md0, y0, q0)
+        un = out[0]
+        q = out[1]
+        
+    '''# initial displacement
     un = y0 * np.sin(md0 * 2.0 * np.pi * s)
     # initial wake oscillator parameter
-    q = q0 * np.sin(md0 * 2.0 * np.pi * s)
+    q = q0 * np.sin(md0 * 2.0 * np.pi * s)'''
+    
     r = np.zeros_like(q)
     ut, ef = cbu.utef(un, ub, C, s, ds, vt2)
 
