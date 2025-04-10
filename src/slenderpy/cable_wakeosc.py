@@ -76,7 +76,7 @@ def solve(cb: cable.SCable,
             q = q0 * np.sin(m * 2.0 * np.pi * s)
         return (un, q)
     
-    if dmd0 > 0:
+    if md0 > 0 and dmd0 > 0:
         # mutli-mode initialisation
         un = np.zeros((pm.ns,))
         q = np.zeros((pm.ns,))
@@ -84,11 +84,15 @@ def solve(cb: cable.SCable,
             out = init_sin(m, y0, q0, qconst=False, y0rand=True)
             un += out[0]
             q += out[1]
-    else:
+    elif md0 > 0 and dmd0 == 0:
         # mono-mode initialisation
         out = init_sin(md0, y0, q0)
         un = out[0]
         q = out[1]
+    else:
+        # constant q=2.0
+        un = np.zeros_like(s)
+        q = 2.0 * np.ones_like(s)
         
     '''# initial displacement
     un = y0 * np.sin(md0 * 2.0 * np.pi * s)
