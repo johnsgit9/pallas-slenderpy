@@ -57,7 +57,10 @@ def solve(cb: cable.SCable,
     ns, s, ds, N, n = cbu.spacediscr(pm.ns)
     vt2, vl2 = cbu.vtvl(cb)
     C, A, I, J = cbu.matrix(ds, n)
-    tAd, uAd = cbu.adim(cb)
+    #tAd, uAd = cbu.adim(cb)
+    # q has frequency 1rad/s
+    tAd = 1. / w
+    uAd = cb.L / tAd
     t, tf, dt, ht, ht2 = cbu.times(pm, tAd)
     z = np.zeros_like(s)
     _, ub, vn, vb = cbu.init_vars(cb, s, z, z, z, z, uAd, False)
