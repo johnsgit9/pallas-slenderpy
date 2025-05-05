@@ -46,13 +46,14 @@ def solve(cb: cable.SCable,
         fluid variable for the positions and times specified in input parameters.
 
     """
-    M = wo.rho * cb.d**2 * wo.cl0 / (16. * np.pi**2 * wo.st**2 * cb.m)
+    M = wo.rho * cb.d**3 * wo.cl0 / (16. * np.pi**2 * wo.st**2 * cb.m * cb.L)
     w = 2. * np.pi * wo.u * wo.st / cb.d
     
     ns, s, ds, N, n = cbu.spacediscr(pm.ns)
     vt2, vl2 = cbu.vtvl(cb)
     C, A, I, J = cbu.matrix(ds, n)
-    #tAd, uAd = cbu.adim(cb)
+    # q frequency defined by inverse of non-dimensional time, so 
+    # need to non-dimensionalize with vortex shedding frequency
     tAd = 1. / w
     uAd = cb.L / tAd
     t, tf, dt, ht, ht2 = cbu.times(pm, tAd)
